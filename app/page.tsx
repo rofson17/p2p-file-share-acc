@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
-const CHUNK_SIZE = 64 * 1024; // 64 KB chunks
+const CHUNK_SIZE = 64 * 1024;
 
 interface IncomingFile {
   name: string;
@@ -14,24 +14,23 @@ interface IncomingFile {
 }
 
 export default function Home() {
-  const socketRef = useRef<Socket | null>(null);
-  const peerRef = useRef<RTCPeerConnection | null>(null);
-  const channelRef = useRef<RTCDataChannel | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const socketRef = useRef<Socket | null>(null)
+  const peerRef = useRef<RTCPeerConnection | null>(null)
+  const channelRef = useRef<RTCDataChannel | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const [roomId, setRoomId] = useState<string>("");
+  const [roomId, setRoomId] = useState<string>("")
   const [status, setStatus] = useState<string>("Initializing...");
   const [connected, setConnected] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
-  const [fileName, setFileName] = useState<string>("");
+  const [fileName, setFileName] = useState<string>("")
 
   const incomingFile = useRef<IncomingFile | null>(null);
 
   useEffect(() => {
-    const promptRoom = prompt("Enter Room Name to join:");
+    const promptRoom = prompt("Enter Room Name to join:")
     if (!promptRoom || !promptRoom.trim()) {
-      alert("Room name is required to proceed.");
-      return;
+      return
     }
 
     const cleanRoom = promptRoom.trim().toLowerCase();
@@ -39,34 +38,34 @@ export default function Home() {
 
     const socket = io({
       transports: ["websocket", "polling"],
-    });
+    })
     socketRef.current = socket;
 
     socket.on("connect", () => {
       setStatus("Connected to server. Joining room...");
       socket.emit("join-room", cleanRoom);
-    });
+    })
 
     socket.on("room-full", () => {
       alert("This room is full! Only 2 users are allowed per room.");
       setStatus("Room is full.");
-    });
+    })
 
     socket.on("room-joined", () => {
       setStatus(`Joined room: ${cleanRoom}. Waiting for peer...`);
-    });
+    })
 
     socket.on("init-offer", async () => {
       await createOffer(cleanRoom);
-    });
+    })
 
     socket.on("offer", async (offer: RTCSessionDescriptionInit) => {
       await createAnswer(cleanRoom, offer);
-    });
+    })
 
     socket.on("answer", async (answer: RTCSessionDescriptionInit) => {
       await peerRef.current?.setRemoteDescription(answer);
-    });
+    })
 
     socket.on("ice-candidate", async (candidate: RTCIceCandidateInit) => {
       try {
@@ -76,12 +75,12 @@ export default function Home() {
       } catch (err) {
         console.log("Error adding received ICE candidate", err);
       }
-    });
+    })
 
     return () => {
       socket.disconnect();
       peerRef.current?.close();
-    };
+    }
   }, []);
 
   function createPeerConnection(currentRoom: string): RTCPeerConnection {
@@ -90,16 +89,16 @@ export default function Home() {
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
       ],
-    });
+    })
 
     peer.onicecandidate = (event) => {
       if (event.candidate) {
         socketRef.current?.emit("ice-candidate", {
           roomId: currentRoom,
           candidate: event.candidate,
-        });
+        })
       }
-    };
+    }
 
     peer.onconnectionstatechange = () => {
       const state = peer.connectionState;
@@ -110,11 +109,11 @@ export default function Home() {
         setConnected(false);
         setStatus("Peer connection lost.");
       }
-    };
+    }
 
     peer.ondatachannel = (event) => {
       setupDataChannel(event.channel);
-    };
+    }
 
     peerRef.current = peer;
     return peer;
@@ -127,17 +126,17 @@ export default function Home() {
     channel.onopen = () => {
       setConnected(true);
       setStatus("Data channel active. Ready to transfer.");
-    };
+    }
 
     channel.onclose = () => {
       setConnected(false);
       setStatus("Data channel closed.");
-    };
+    }
 
     channel.onerror = (error) => {
       console.log("Data channel error:", error);
       setStatus("Transfer error encountered.");
-    };
+    }
 
     channel.onmessage = (event) => {
       if (typeof event.data === "string") {
@@ -150,7 +149,7 @@ export default function Home() {
               type: msg.fileType,
               chunks: [],
               received: 0,
-            };
+            }
             setFileName(msg.name);
             setProgress(0);
             setStatus(`Receiving ${msg.name}...`);
@@ -171,14 +170,14 @@ export default function Home() {
 
       const pct = Math.min(100, (incoming.received / incoming.size) * 100);
       setProgress(pct);
-    };
+    }
   }
 
   async function createOffer(currentRoom: string) {
     const peer = createPeerConnection(currentRoom);
     const channel = peer.createDataChannel("file-channel", {
       ordered: true,
-    });
+    })
     setupDataChannel(channel);
 
     const offer = await peer.createOffer();
@@ -218,7 +217,7 @@ export default function Home() {
         size: file.size,
         fileType: file.type,
       })
-    );
+    )
 
     let offset = 0;
     try {
@@ -274,9 +273,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-800 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 shadow-xl text-center">
-        <h1 className="text-2xl font-bold mb-1 text-slate-900">P2P File Drop -ACC</h1>
+        <h1 className="text-2xl font-bold mb-1 text-slate-900">P2P File Drop for Accounting4A Students</h1>
         <p className="text-sm text-slate-500 mb-6">
-          Room: <span className="text-slate-900 font-semibold">{roomId || "None"}</span>
+          Room: <span className="text-blue-600 font-semibold">{roomId || "None"}</span>
         </p>
 
         <input
